@@ -6,6 +6,8 @@ import (
 	"./user"
 )
 
+var db *mgo.Database
+
 func startPage(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"message": "pong",
@@ -17,6 +19,7 @@ func main() {
     if err != nil {
         panic(err)
     }
+    db = session.DB(m.Database)
     defer session.Close()
 	route := gin.Default()
 	v1 := route.Group("/api/v1/")
