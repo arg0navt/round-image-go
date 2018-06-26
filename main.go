@@ -13,7 +13,7 @@ func startPage(c *gin.Context) {
 }
 
 func main() {
-	session, err := mgo.Dial("mongodb+srv://argonavt:korolego33@cluster0-vmmdn.mongodb.net/Cluster0?retryWrites=true")
+	session, err := mgo.Dial("mongodb://localhost/rimg")
     if err != nil {
         panic(err)
     }
