@@ -16,13 +16,13 @@ func main() {
 	session, err := mongo.NewSession("mongodb://localhost/rimg")
   	if(err != nil) {
 		panic(err)
- 	}
+	}
   	defer session.Close()
 	route := gin.Default()
-	v1 := route.Group("/api/v1/")
+	v1 := route.Group("/user")
 	route.GET("/", startPage)
 	{
-		v1.GET("user", user.GetUser)
+		v1.GET("/", user.GetAll)
 	}
 	route.Run()
 }
