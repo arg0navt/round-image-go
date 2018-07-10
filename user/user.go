@@ -12,11 +12,9 @@ type FindUser struct {
 	Name, UrlProf, Avatar string
 }
 
-//type Message struct {
-//	Text string
-//	Id int
-//}
-func GetParseUsers(url string) []FindUser {
+var users []FindUser
+
+func GetParseUsers(url string, c chan []FindUser) {
 	var arrayUser []FindUser
 	res, err := http.Get(url)
 	if err != nil {
@@ -36,19 +34,23 @@ func GetParseUsers(url string) []FindUser {
 			arrayUser = append(arrayUser, newUser)
 		}
 	})
-	return arrayUser
+	c <- arrayUser
+}
+
+func addUsers(i int) {
+	c := make(chan []FindUser)
+	go GetParseUsers("https://kanobu.ru/shouts/" + strconv.Itoa(i), c)
+	newUsers := <-c
+	if newUsers != nil {
+		users = append(users, newUsers...)
+	}
 }
 
 func GetAll(c *gin.Context) {
-    var	users []FindUser
-	for i := 1; i < 7; i++ {
-		newUsers := GetParseUsers("https://kanobu.ru/shouts/" + strconv.Itoa(i))
-		if newUsers != nil {
-			users = append(users, newUsers...)
-		}
-
+	for i := 1; i < 20; i++ {
+		go addUsers(i)
 	}
-	c.JSON(200, gin.H{
+	defer c.JSON(200, gin.H{
 		"users": users,
 	})
 }
