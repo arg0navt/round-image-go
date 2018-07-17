@@ -1,12 +1,15 @@
 package main
 
 import (
-	"html"
 	"net/http"
-	"fmt"
 	"log"
 	"github.com/gorilla/mux"
+	"encoding/json"
 )
+
+type ResultIndex struct {
+	Connect bool
+}
 
 func main() {
 	router := mux.NewRouter().StrictSlash(true)
@@ -15,5 +18,8 @@ func main() {
 }
 
 func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+	result := ResultIndex{Connect:true}
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		panic(err)
+	}
 }
