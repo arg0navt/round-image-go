@@ -3,30 +3,47 @@ package user
 import (
 	"net/http"
 	"sync"
-	"encoding/json"
 	"log"
 	"github.com/PuerkitoBio/goquery"
 	"strconv"
+	"encoding/json"
 )
-
-func ParseUsers(w http.ResponseWriter, r *http.Request) {
-	var (
-		wg sync.WaitGroup
-		result []FindUser
-	)
-	for i := 1; i <= 10; i++ {
-		wg.Add(1)
-		go addUsers(i, &wg, &result)
-	}
-	wg.Wait()
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		panic(err)
-	}
-}
 
 type FindUser struct {
 	Name, UrlProf, Avatar string
 }
+
+type SyntaxError struct {
+	msg string // error description
+}
+
+func ParseUsers(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	start, errStart := strconv.Atoi(query["start"][0])
+	end, errEnd := strconv.Atoi(query["end"][0])
+	if errStart == nil && errEnd == nil {
+		var (
+			wg sync.WaitGroup
+			result []FindUser
+		)
+		for i := start; i <= end; i++ {
+			wg.Add(1)
+			go addUsers(i, &wg, &result)
+		}
+		wg.Wait()
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			panic(err)
+		}
+	} else {
+		if errEnd != nil {
+			http.Error(w, errEnd.Error(), 500)
+		}
+		if errStart != nil {
+			http.Error(w, errStart.Error(), 500)
+		}
+	}
+}
+
 
 func GetParseUsers(url string, result *[]FindUser) {
 	res, err := http.Get(url)
