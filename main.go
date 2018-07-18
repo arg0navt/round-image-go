@@ -6,8 +6,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/PuerkitoBio/goquery"
 	"strconv"
-	"fmt"
 	"encoding/json"
+	"sync"
 )
 
 type ResultIndex struct {
@@ -21,32 +21,23 @@ func main() {
 }
 
 func Index(w http.ResponseWriter, r *http.Request) {
-	makeWorker := Worker{Size: 20, Result: 0}
-	var lookReady func(int)
-	lookReady = func (i int) {
-		fmt.Println(i)
-		if i == makeWorker.Size {
-			fmt.Println("piy piy")
-			if err := json.NewEncoder(w).Encode(users); err != nil {
-				panic(err)
-			}
-		}
+	var (
+		wg sync.WaitGroup
+		result []FindUser
+	)
+	for i := 1; i <= 10; i++ {
+		wg.Add(1)
+		go addUsers(i, &wg, &result)
 	}
-	for i := 1; i < makeWorker.Size; i++ {
-		go addUsers(i, &makeWorker, lookReady)
+	wg.Wait()
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		panic(err)
 	}
-}
-
-type Worker struct {
-	Size int
-	Result int
 }
 
 type FindUser struct {
 	Name, UrlProf, Avatar string
 }
-
-var users []FindUser
 
 func GetParseUsers(url string, c chan []FindUser) {
 	var arrayUser []FindUser
@@ -71,13 +62,12 @@ func GetParseUsers(url string, c chan []FindUser) {
 	c <- arrayUser
 }
 
-func addUsers(i int, worker *Worker, callback func(int)) {
+func addUsers(i int, wg *sync.WaitGroup, result *[]FindUser) {
 	c := make(chan []FindUser)
 	go GetParseUsers("https://kanobu.ru/shouts/" + strconv.Itoa(i), c)
 	newUsers := <-c
 	if newUsers != nil {
-		users = append(users, newUsers...)
-		worker.Result = worker.Result + 1
-		callback(worker.Result)
+		*result = append(*result, newUsers...)
 	}
+	wg.Done()
 }
