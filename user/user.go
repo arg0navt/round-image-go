@@ -3,10 +3,9 @@ package user
 import (
 	"net/http"
 	"sync"
-	"log"
-	"github.com/PuerkitoBio/goquery"
 	"strconv"
 	"encoding/json"
+	"github.com/PuerkitoBio/goquery"
 )
 
 type FindUser struct {
@@ -17,6 +16,8 @@ type SyntaxError struct {
 	msg string // error description
 }
 
+const maxStack = 200
+
 func ParseUsers(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	start, errStart := strconv.Atoi(query["start"][0])
@@ -26,10 +27,7 @@ func ParseUsers(w http.ResponseWriter, r *http.Request) {
 			wg sync.WaitGroup
 			result []FindUser
 		)
-		for i := start; i <= end; i++ {
-			wg.Add(1)
-			go addUsers(i, &wg, &result)
-		}
+		wait(&wg, &result, &start, &end)
 		wg.Wait()
 		if err := json.NewEncoder(w).Encode(result); err != nil {
 			panic(err)
@@ -44,28 +42,38 @@ func ParseUsers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func wait(wg *sync.WaitGroup, result *[]FindUser, end *int, start *int)  {
+	for i := *start; i <= *end; i++ {
+		wg.Add(1)
+		go addUsers(i, wg, result)
+	}
+	nextEnd := *end - maxStack
+	if nextEnd > 1 {
+		wait(wg, result, &nextEnd, start)
+	}
+}
+
 
 func GetParseUsers(url string, result *[]FindUser) {
 	res, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
+	if err == nil {
+		doc, _ := goquery.NewDocumentFromReader(res.Body)
+		doc.Find(".shout-answer--item").Each(func(i int, s *goquery.Selection) {
+			link, errLink := s.Find(".shout-author").Attr("href")
+			img, errImg := s.Find(".shout-item--pic").Attr("src")
+			if (errLink == true) && (errImg == true) {
+				newUser := FindUser{
+					Name: s.Find(".shout-author--name").Text(),
+					UrlProf: link,
+					Avatar: img,
+				}
+				if catchReiteration(result, newUser) != false {
+					*result = append(*result, newUser)
+				}
+			}
+		})
 	}
 	defer res.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	doc.Find(".shout-answer--item").Each(func(i int, s *goquery.Selection) {
-		link, errLink := s.Find(".shout-author").Attr("href")
-		img, errImg := s.Find(".shout-item--pic").Attr("src")
-		if (errLink == true) && (errImg == true) {
-			newUser := FindUser{
-				Name: s.Find(".shout-author--name").Text(),
-				UrlProf: link,
-				Avatar: img,
-			}
-			if catchReiteration(result, newUser) != false {
-				*result = append(*result, newUser)
-			}
-		}
-	})
 }
 
 func catchReiteration(arrayUser *[]FindUser, user FindUser) bool {
