@@ -27,7 +27,10 @@ func ParseUsers(w http.ResponseWriter, r *http.Request) {
 			wg sync.WaitGroup
 			result []FindUser
 		)
-		wait(&wg, &result, &start, &end)
+		for i := start; i <= end; i++ {
+			wg.Add(1)
+			go addUsers(i, &wg, &result)
+		}
 		wg.Wait()
 		if err := json.NewEncoder(w).Encode(result); err != nil {
 			panic(err)
@@ -42,20 +45,10 @@ func ParseUsers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func wait(wg *sync.WaitGroup, result *[]FindUser, end *int, start *int)  {
-	for i := *start; i <= *end; i++ {
-		wg.Add(1)
-		go addUsers(i, wg, result)
-	}
-	nextEnd := *end - maxStack
-	if nextEnd > 1 {
-		wait(wg, result, &nextEnd, start)
-	}
-}
-
 
 func GetParseUsers(url string, result *[]FindUser) {
 	res, err := http.Get(url)
+	defer res.Body.Close()
 	if err == nil {
 		doc, _ := goquery.NewDocumentFromReader(res.Body)
 		doc.Find(".shout-answer--item").Each(func(i int, s *goquery.Selection) {
@@ -73,7 +66,6 @@ func GetParseUsers(url string, result *[]FindUser) {
 			}
 		})
 	}
-	defer res.Body.Close()
 }
 
 func catchReiteration(arrayUser *[]FindUser, user FindUser) bool {
