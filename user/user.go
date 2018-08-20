@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -15,53 +14,61 @@ type FindItem struct {
 }
 
 func ParseUsers(w http.ResponseWriter, r *http.Request) {
-	var (
-		wg     sync.WaitGroup
-		result []FindItem
-	)
-	for i := 100; i <= 112; i++ {
-		wg.Add(1)
-		go addItem(i, &wg, &result)
+	var result []FindItem
+	group := make(chan int)
+	size := 200
+	endItem := 1
+	for i := 1; i <= size; i++ {
+		go GetParseUsers("https://www.avito.ru/rostov-na-donu/kvartiry?p="+strconv.Itoa(i), &result, group)
 	}
-	wg.Wait()
+	for endItem <= size {
+		select {
+		case <-group:
+			endItem++
+		}
+	}
 	if err := json.NewEncoder(w).Encode(result); err != nil {
 		panic(err)
 	}
 }
 
-func GetParseUsers(url string, result *[]FindItem) {
+func GetParseUsers(url string, result *[]FindItem, group chan int) (bool, error) {
 	res, err := http.Get(url)
-	if err == nil {
-		doc, _ := goquery.NewDocumentFromReader(res.Body)
-		doc.Find(".item").Each(func(i int, s *goquery.Selection) {
-			id, okId := s.Attr("data-item-id")
-			if okId == true {
-
-				if s.Find(".item-description-title span").Text() != "" {
-					newItem := FindItem{
-						Title:    s.Find(".item-description-title span").Text(),
-						Price:    s.Find(".about .price").Text(),
-						Location: s.Find(".addres").Text(),
-						Id:       strconv.Atoi(id),
-					}
-					*result = append(*result, newItem)
-				}
-			}
-		})
-		res.Body.Close()
+	if err != nil {
+		group <- 0
+		return false, err
 	}
+	defer res.Body.Close()
+	doc, _ := goquery.NewDocumentFromReader(res.Body)
+	doc.Find(".item").Each(func(i int, s *goquery.Selection) {
+		id, okId := s.Attr("data-item-id")
+		if okId == true {
+			idInt, _ := strconv.Atoi(id)
+			findItem := findItemInResult(idInt, result)
+			if findItem == false && s.Find(".item-description-title span").Text() != "" {
+				newItem := FindItem{
+					Title:    s.Find(".item-description-title span").Text(),
+					Price:    s.Find(".about .price").Text(),
+					Location: s.Find(".addres").Text(),
+					Id:       idInt,
+				}
+				*result = append(*result, newItem)
+			}
+		}
+	})
+	group <- 1
+	return true, nil
 }
 
 func findItemInResult(item int, result *[]FindItem) bool {
-	for i := 0; i <= len(*result); i++ {
-		if *result[i].id == item {
+	for i := 0; i < len(*result); i++ {
+		if (*result)[i].Id == item {
 			return true
 		}
 	}
 	return false
 }
 
-func addItem(i int, wg *sync.WaitGroup, result *[]FindItem) {
-	GetParseUsers("https://www.avito.ru/rostov-na-donu/kvartiry?p="+strconv.Itoa(i), result)
-	wg.Done()
+func addItem(i int, result *[]FindItem, group chan int) {
+	GetParseUsers("https://www.avito.ru/rostov-na-donu/kvartiry?p="+strconv.Itoa(i), result, group)
 }
