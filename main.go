@@ -1,15 +1,24 @@
 package main
 
 import (
-	"net/http"
-	"log"
-	"github.com/gorilla/mux"
-	"./user"
 	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+
+	"./user"
+	"github.com/gorilla/mux"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type ResultIndex struct {
 	Connect bool
+}
+
+type Person struct {
+	ID    string `json:"id" bson:"_id"`
+	Email string `json:"email"`
 }
 
 func Index(w http.ResponseWriter, r *http.Request) {
@@ -19,6 +28,18 @@ func Index(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	session, err := mgo.Dial("localhost:27017")
+	if err != nil {
+		panic(err)
+	}
+	defer session.Close()
+	collection := session.DB("rimg").C("users")
+	result := Person{}
+	findUser := collection.Find(bson.M{"email": "test.test@test.com"}).One(&result)
+	if findUser != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("ee", result)
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", Index)
 	router.HandleFunc("/parse", user.ParseUsers)

@@ -16,7 +16,7 @@ type FindItem struct {
 func ParseUsers(w http.ResponseWriter, r *http.Request) {
 	var result []FindItem
 	group := make(chan int)
-	size := 200
+	size := 10
 	endItem := 1
 	for i := 1; i <= size; i++ {
 		go GetParseUsers("https://www.avito.ru/rostov-na-donu/kvartiry?p="+strconv.Itoa(i), &result, group)
@@ -61,14 +61,10 @@ func GetParseUsers(url string, result *[]FindItem, group chan int) (bool, error)
 }
 
 func findItemInResult(item int, result *[]FindItem) bool {
-	for i := 0; i < len(*result); i++ {
-		if (*result)[i].Id == item {
+	for _, resultItem := range *result {
+		if resultItem.Id == item {
 			return true
 		}
 	}
 	return false
-}
-
-func addItem(i int, result *[]FindItem, group chan int) {
-	GetParseUsers("https://www.avito.ru/rostov-na-donu/kvartiry?p="+strconv.Itoa(i), result, group)
 }
