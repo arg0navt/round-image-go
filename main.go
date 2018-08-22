@@ -17,7 +17,7 @@ type ResultIndex struct {
 }
 
 type Person struct {
-	ID    string `json:"id" bson:"_id"`
+	ID    int    `json:"value" bson:"_id,omitempty"`
 	Email string `json:"email"`
 }
 
@@ -39,7 +39,7 @@ func main() {
 	if findUser != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("ee", result)
+	fmt.Println(result)
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", Index)
 	router.HandleFunc("/parse", user.ParseUsers)
