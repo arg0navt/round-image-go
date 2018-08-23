@@ -8,8 +8,8 @@ const URL = "localhost:27017"
 const DB = "rimg"
 
 type SessionControll interface {
-	GetSession()
-	GetUsers()
+	GetSession() *mgo.Session
+	GetUsers() *mgo.Collection
 }
 
 type Session struct {

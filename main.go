@@ -6,18 +6,13 @@ import (
 	"net/http"
 
 	"./db"
-	"./user"
+	"./parse"
 	"github.com/gorilla/mux"
 	"gopkg.in/mgo.v2"
 )
 
 type ResultIndex struct {
 	Connect bool
-}
-
-type Person struct {
-	ID    int    `json:"value" bson:"_id,omitempty"`
-	Email string `json:"email"`
 }
 
 func Index(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +30,6 @@ func main() {
 	defer s.GetSession().Close()
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", Index)
-	router.HandleFunc("/parse", user.ParseUsers)
+	router.HandleFunc("/parse", parse.ParseUsers)
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
