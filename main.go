@@ -7,6 +7,7 @@ import (
 
 	"./db"
 	"./parse"
+	"./user"
 	"github.com/gorilla/mux"
 	"gopkg.in/mgo.v2"
 )
@@ -30,6 +31,7 @@ func main() {
 	defer s.GetSession().Close()
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", Index)
+	router.HandleFunc("/user", user.CreateUser).Methods("POST")
 	router.HandleFunc("/parse", parse.ParseUsers)
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
