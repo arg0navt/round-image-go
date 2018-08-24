@@ -22,5 +22,6 @@ func (s Session) GetSession() *mgo.Session {
 
 func (s Session) GetUsers() *mgo.Collection {
 	collection := s.Value.DB("rimg").C("users")
+
 	return collection
 }
