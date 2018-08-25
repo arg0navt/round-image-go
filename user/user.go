@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
+
+	"github.com/fatih/structs"
 )
 
 // type User struct {
@@ -25,9 +26,11 @@ type NewUser struct {
 }
 
 func (u NewUser) ValidateEmptyValues() bool {
-	t := reflect.TypeOf(u)
-	for i := 0; i < t.NumField(); i++ {
-		fmt.Println(t.Field(i))
+	n := structs.Values(u)
+	for _, i := range n {
+		if i == "" {
+			return false
+		}
 	}
 	return true
 }
