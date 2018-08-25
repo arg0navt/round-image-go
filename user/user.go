@@ -2,7 +2,6 @@ package user
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/fatih/structs"
@@ -26,9 +25,9 @@ type NewUser struct {
 }
 
 func (u NewUser) ValidateEmptyValues() bool {
-	n := structs.Values(u)
-	for _, i := range n {
-		if i == "" {
+	n := structs.Map(u)
+	for _, value := range n {
+		if value == "" {
 			return false
 		}
 	}
@@ -47,5 +46,9 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var data RequestCreateUser = target
-	fmt.Println(data.ValidateEmptyValues())
+	okEmpty := data.ValidateEmptyValues()
+	if okEmpty == false {
+		http.Error(w, "Emply value", 400)
+		return
+	}
 }
