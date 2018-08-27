@@ -27,8 +27,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	var s db.SessionControll = db.Session{session}
-	defer s.GetSession().Close()
+	db.S = db.Session{session}
+	defer db.S.Value.Close()
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", Index)
 	router.HandleFunc("/user", user.CreateUser).Methods("POST")

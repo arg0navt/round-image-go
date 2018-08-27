@@ -2,10 +2,12 @@ package user
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"unicode/utf8"
 
+	"../db"
 	"github.com/fatih/structs"
 )
 
@@ -19,11 +21,10 @@ type RequestCreateUser interface {
 }
 
 type NewUser struct {
-	FirstName      string `json:"first_name"`
-	LastName       string `json:"last_name"`
-	Email          string `json:"email"`
-	Password       string `json:"password"`
-	RepeatPassword string `json:"repeat_password"`
+	FirstName string `json:"first_name" bson:"first_name"`
+	LastName  string `json:"last_name" bson:"last_name"`
+	Email     string `json:"email" bson:"email"`
+	Password  string `json:"password" bson:"password"`
 }
 
 func (u NewUser) ValidateValues() (bool, string) {
@@ -41,9 +42,6 @@ func (u NewUser) ValidateValues() (bool, string) {
 				return false, "email error "
 			}
 		case "Password":
-			if value.(string) != mapUser["RepeatPassword"].(string) {
-				return false, "repeat password != password "
-			}
 			passV := validate(value.(string), `[a-zA-Z0-9]`, 8, 20)
 			if passV == false {
 				return false, "password error "
@@ -75,5 +73,9 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	if okValid == false {
 		http.Error(w, text, 400)
 		return
+	}
+	err = db.GetUsers().Insert(data)
+	if err != nil {
+		fmt.Println(err)
 	}
 }
