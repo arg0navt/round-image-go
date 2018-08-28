@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"time"
 	"unicode/utf8"
 
 	"../db"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/fatih/structs"
 )
 
-// type User struct {
-// 	ID    int    `json:"value" bson:"_id,omitempty"`
-// 	Email string `json:"email"`
-// }
+var mySigningKey = []byte("piypiy")
 
 type RequestCreateUser interface {
 	ValidateValues() (bool, string)
@@ -25,6 +24,11 @@ type NewUser struct {
 	LastName  string `json:"last_name" bson:"last_name"`
 	Email     string `json:"email" bson:"email"`
 	Password  string `json:"password" bson:"password"`
+}
+
+type LogInRequest struct {
+	Email    string `json:"email" bson:"email"`
+	Password string `json:"password" bson:"password"`
 }
 
 func (u NewUser) ValidateValues() (bool, string) {
@@ -81,4 +85,25 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 	}
+}
+
+func LogIn(w http.ResponseWriter, r *http.Request) {
+	var target LogInRequest
+	if r.Body == nil {
+		http.Error(w, "Please send a request body", 400)
+		return
+	}
+	err := json.NewDecoder(r.Body).Decode(&target)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	token := jwt.New(jwt.SigningMethodHS256)
+	token.Claims["email"] = target.Email
+	token.Claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+	// Подписываем токен нашим секретным ключем
+	tokenString, _ := token.SignedString(mySigningKey)
+
+	// Отдаем токен клиенту
+	w.Write([]byte(tokenString))
 }
