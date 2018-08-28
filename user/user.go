@@ -38,6 +38,8 @@ func (u NewUser) ValidateValues() (bool, string) {
 			}
 		case "Email":
 			emailV := validate(value.(string), `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`, 5, 50)
+			f := db.FindUser(value.(string))
+			fmt.Println(f)
 			if emailV == false {
 				return false, "email error "
 			}
@@ -74,8 +76,8 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, text, 400)
 		return
 	}
-	err = db.GetUsers().Insert(data)
-	if err != nil {
-		fmt.Println(err)
-	}
+	// err = db.GetUsers().Insert(data)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 }
