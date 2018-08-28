@@ -18,8 +18,10 @@ func GetUsers() *mgo.Collection {
 	return S.Value.DB(DB).C("users")
 }
 
-func FindUser(email string) bson.ObjectId {
-	var result bson.ObjectIdвыа
-	S.Value.DB(DB).C("users").Find(bson.M{"email": email})
-	return result
+func ThereIsUser(email string) bool {
+	result, _ := S.Value.DB(DB).C("users").Find(bson.M{"email": email}).Count()
+	if result != 0 {
+		return true
+	}
+	return false
 }

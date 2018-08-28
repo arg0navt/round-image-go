@@ -34,19 +34,20 @@ func (u NewUser) ValidateValues() (bool, string) {
 		case "FirstName", "LastName":
 			nameV := validate(value.(string), `[a-zA-Z]`, 2, 32)
 			if nameV == false {
-				return false, "name error "
+				return false, "name error"
 			}
 		case "Email":
 			emailV := validate(value.(string), `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`, 5, 50)
-			f := db.FindUser(value.(string))
-			fmt.Println(f)
+			if db.ThereIsUser(value.(string)) == true {
+				return false, "occupied email"
+			}
 			if emailV == false {
-				return false, "email error "
+				return false, "email error"
 			}
 		case "Password":
 			passV := validate(value.(string), `[a-zA-Z0-9]`, 8, 20)
 			if passV == false {
-				return false, "password error "
+				return false, "password error"
 			}
 		}
 	}
@@ -76,8 +77,8 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, text, 400)
 		return
 	}
-	// err = db.GetUsers().Insert(data)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
+	err = db.GetUsers().Insert(data)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
