@@ -31,6 +31,7 @@ func main() {
 	defer db.S.Value.Close()
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", Index)
+	router.HandleFunc("/check-token", user.CheckToken)
 	router.HandleFunc("/sign-up", user.CreateUser).Methods("POST")
 	router.HandleFunc("/log-in", user.LogIn).Methods("POST")
 	router.HandleFunc("/parse", parse.ParseUsers)

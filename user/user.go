@@ -24,6 +24,10 @@ type NewUser struct {
 	Password  string `json:"password" bson:"password"`
 }
 
+type Exception struct {
+	Message string `json: "message"`
+}
+
 type LogInRequest struct {
 	Email    string `json:"email" bson:"email"`
 	Password string `json:"password" bson:"password"`
@@ -100,14 +104,43 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email": target.Email,
-		"exp":   time.Now().Add(time.Hour * 24).Unix(),
-		"iat":   time.Now().Unix(),
-	})
-	tokenString, error := token.SignedString([]byte("secret"))
+	token, error := createToken(target.Email)
 	if error != nil {
 		fmt.Println(error)
 	}
-	json.NewEncoder(w).Encode(JwtToken{Token: tokenString})
+	json.NewEncoder(w).Encode(JwtToken{Token: token})
+}
+
+func CheckToken(w http.ResponseWriter, r *http.Request) {
+	authorizationHeader := r.Header.Get("authorization")
+	if authorizationHeader != "" {
+		token, error := jwt.Parse(authorizationHeader, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("There was an error")
+			}
+			return []byte("secret"), nil
+		})
+		if error != nil {
+			json.NewEncoder(w).Encode(Exception{Message: error.Error()})
+			return
+		}
+		fmt.Println(token)
+		if token.Valid {
+			json.NewEncoder(w).Encode(Exception{Message: "ok"})
+		} else {
+			json.NewEncoder(w).Encode(Exception{Message: "Invalid authorization token"})
+		}
+
+	} else {
+		json.NewEncoder(w).Encode(Exception{Message: "An authorization header is required"})
+	}
+}
+
+func createToken(e string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email": e,
+		"exp":   time.Now().Add(time.Hour * 24).Unix(),
+		"iat":   time.Now().Unix(),
+	})
+	return token.SignedString([]byte("secret"))
 }
