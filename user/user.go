@@ -31,6 +31,11 @@ type JwtToken struct {
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var target RequestLogInSignUp
 	if ready := readyData(&target, w, r); ready == true {
+		okValid, text := validateValuesSignUp(&target)
+		if okValid == false {
+			http.Error(w, text, 400)
+			return
+		}
 		err := db.GetUsers().Insert(target)
 		if err != nil {
 			fmt.Println(err)
@@ -46,6 +51,11 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 func LogIn(w http.ResponseWriter, r *http.Request) {
 	var target RequestLogInSignUp
 	if ready := readyData(&target, w, r); ready == true {
+		okValid, text := validateValuesLogIn(&target)
+		if okValid == false {
+			http.Error(w, text, 400)
+			return
+		}
 		token, error := createToken(target.Email)
 		if error != nil {
 			fmt.Println(error)
@@ -95,11 +105,7 @@ func readyData(target *RequestLogInSignUp, w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), 400)
 		return false
 	}
-	okValid, text := validateValues(target)
-	if okValid == false {
-		http.Error(w, text, 400)
-		return false
-	}
+
 	return true
 }
 
@@ -112,7 +118,7 @@ func createToken(e string) (string, error) {
 	return token.SignedString([]byte("secret"))
 }
 
-func validateValues(values *RequestLogInSignUp) (bool, string) {
+func validateValuesSignUp(values *RequestLogInSignUp) (bool, string) {
 	mapValues := structs.Map(values)
 	for key, value := range mapValues {
 		switch key {
@@ -126,6 +132,25 @@ func validateValues(values *RequestLogInSignUp) (bool, string) {
 			if db.ThereIsUser(value.(string)) == true {
 				return false, "occupied email"
 			}
+			if emailV == false {
+				return false, "email error"
+			}
+		case "Password":
+			passV := validate(value.(string), `[a-zA-Z0-9]`, 8, 20)
+			if passV == false {
+				return false, "password error"
+			}
+		}
+	}
+	return true, "validate"
+}
+
+func validateValuesLogIn(values *RequestLogInSignUp) (bool, string) {
+	mapValues := structs.Map(values)
+	for key, value := range mapValues {
+		switch key {
+		case "Email":
+			emailV := validate(value.(string), `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`, 5, 50)
 			if emailV == false {
 				return false, "email error"
 			}
