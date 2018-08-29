@@ -13,8 +13,6 @@ import (
 	"github.com/fatih/structs"
 )
 
-var mySigningKey = []byte("piypiy")
-
 type RequestCreateUser interface {
 	ValidateValues() (bool, string)
 }
@@ -29,6 +27,10 @@ type NewUser struct {
 type LogInRequest struct {
 	Email    string `json:"email" bson:"email"`
 	Password string `json:"password" bson:"password"`
+}
+
+type JwtToken struct {
+	Token string `json:"token"`
 }
 
 func (u NewUser) ValidateValues() (bool, string) {
@@ -98,12 +100,14 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	token := jwt.New(jwt.SigningMethodHS256)
-	token.Claims["email"] = target.Email
-	token.Claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
-	// Подписываем токен нашим секретным ключем
-	tokenString, _ := token.SignedString(mySigningKey)
-
-	// Отдаем токен клиенту
-	w.Write([]byte(tokenString))
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email": target.Email,
+		"exp":   time.Now().Add(time.Hour * 24).Unix(),
+		"iat":   time.Now().Unix(),
+	})
+	tokenString, error := token.SignedString([]byte("secret"))
+	if error != nil {
+		fmt.Println(error)
+	}
+	json.NewEncoder(w).Encode(JwtToken{Token: tokenString})
 }
