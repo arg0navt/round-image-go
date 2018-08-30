@@ -40,10 +40,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fmt.Println(err)
 		}
-		token, error := createToken(target.Email)
-		if error != nil {
-			fmt.Println(error)
-		}
+		token := createToken(w, target.Email)
 		json.NewEncoder(w).Encode(JwtToken{Token: token})
 	}
 }
@@ -56,21 +53,24 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, text, 400)
 			return
 		}
-		token, error := createToken(target.Email)
-		if error != nil {
-			fmt.Println(error)
-		}
+		token := createToken(w, target.Email)
 		json.NewEncoder(w).Encode(JwtToken{Token: token})
 	}
 }
 
+// func LogOut(w http.ResponseWriter, r *http.Request) {
+// 	if v, token := validateToken(w, r); v == true {
+
+// 	}
+// }
+
 func CheckToken(w http.ResponseWriter, r *http.Request) {
-	if v := validateToken(w, r); v == true {
+	if v, _ := validateToken(w, r); v == true {
 		json.NewEncoder(w).Encode(Exception{Message: "ok"})
 	}
 }
 
-func validateToken(w http.ResponseWriter, r *http.Request) bool {
+func validateToken(w http.ResponseWriter, r *http.Request) (bool, string) {
 	authorizationHeader := r.Header.Get("authorization")
 	if authorizationHeader != "" {
 		token, error := jwt.Parse(authorizationHeader, func(token *jwt.Token) (interface{}, error) {
@@ -81,18 +81,21 @@ func validateToken(w http.ResponseWriter, r *http.Request) bool {
 		})
 		if error != nil {
 			http.Error(w, "Invalid authorization token", 400)
-			return false
+			return false, "Invalid authorization token"
 		}
 		if token.Valid {
-			return true
-		} else {
-			http.Error(w, "Invalid authorization token", 400)
+			_, err := r.Cookie(authorizationHeader)
+			if err != nil {
+				http.Error(w, "Tocken not found id cookie", 400)
+				return false, "Tocken not found id cookie"
+			}
+			return true, authorizationHeader
 		}
-
-	} else {
-		http.Error(w, "An authorization header is required", 400)
+		http.Error(w, "Timing is everything", 400)
+		return false, "Timing is everything"
 	}
-	return false
+	http.Error(w, "An authorization header is required", 400)
+	return false, "An authorization header is required"
 }
 
 func readyData(target *RequestLogInSignUp, w http.ResponseWriter, r *http.Request) bool {
@@ -109,13 +112,19 @@ func readyData(target *RequestLogInSignUp, w http.ResponseWriter, r *http.Reques
 	return true
 }
 
-func createToken(e string) (string, error) {
+func createToken(w http.ResponseWriter, e string) string {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"email": e,
 		"exp":   time.Now().Add(time.Hour * 24).Unix(),
 		"iat":   time.Now().Unix(),
 	})
-	return token.SignedString([]byte("secret"))
+	tokenString, _ := token.SignedString([]byte("secret"))
+	http.SetCookie(w, &http.Cookie{
+		Name:   tokenString,
+		Value:  tokenString,
+		MaxAge: 20,
+	})
+	return tokenString
 }
 
 func validateValuesSignUp(values *RequestLogInSignUp) (bool, string) {
