@@ -13,6 +13,8 @@ import (
 	"github.com/fatih/structs"
 )
 
+const maxAge = 86400 // duration valid token
+
 type RequestLogInSignUp struct {
 	FirstName string `json:"first_name" bson:"first_name"`
 	LastName  string `json:"last_name" bson:"last_name"`
@@ -58,11 +60,16 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// func LogOut(w http.ResponseWriter, r *http.Request) {
-// 	if v, token := validateToken(w, r); v == true {
-
-// 	}
-// }
+func LogOut(w http.ResponseWriter, r *http.Request) {
+	if v, token := validateToken(w, r); v == true {
+		c := http.Cookie{
+			Name:   token,
+			MaxAge: -1,
+		}
+		http.SetCookie(w, &c)
+		json.NewEncoder(w).Encode(Exception{Message: "ok"})
+	}
+}
 
 func CheckToken(w http.ResponseWriter, r *http.Request) {
 	if v, _ := validateToken(w, r); v == true {
@@ -86,8 +93,8 @@ func validateToken(w http.ResponseWriter, r *http.Request) (bool, string) {
 		if token.Valid {
 			_, err := r.Cookie(authorizationHeader)
 			if err != nil {
-				http.Error(w, "Tocken not found id cookie", 400)
-				return false, "Tocken not found id cookie"
+				http.Error(w, "Tocken not found in cookie", 400)
+				return false, "Tocken not found in cookie"
 			}
 			return true, authorizationHeader
 		}
@@ -122,7 +129,7 @@ func createToken(w http.ResponseWriter, e string) string {
 	http.SetCookie(w, &http.Cookie{
 		Name:   tokenString,
 		Value:  tokenString,
-		MaxAge: 20,
+		MaxAge: maxAge,
 	})
 	return tokenString
 }

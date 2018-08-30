@@ -33,6 +33,7 @@ func main() {
 	router.HandleFunc("/", Index)
 	router.HandleFunc("/check-token", user.CheckToken)
 	router.HandleFunc("/sign-up", user.CreateUser).Methods("POST")
+	router.HandleFunc("/log-out", user.LogOut)
 	router.HandleFunc("/log-in", user.LogIn).Methods("POST")
 	router.HandleFunc("/parse", parse.ParseUsers)
 	log.Fatal(http.ListenAndServe(":8080", router))
