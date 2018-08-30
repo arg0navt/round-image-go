@@ -8,6 +8,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"gopkg.in/mgo.v2/bson"
+
 	"../db"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/fatih/structs"
@@ -20,6 +22,36 @@ type RequestLogInSignUp struct {
 	LastName  string `json:"last_name" bson:"last_name"`
 	Email     string `json:"email" bson:"email"`
 	Password  string `json:"password" bson:"password"`
+}
+
+type User struct {
+	FirstName      string  `json:"first_name" bson:"first_name"`
+	LastName       string  `json:"last_name" bson:"last_name"`
+	Email          string  `json:"email" bson:"email"`
+	Password       string  `json:"password" bson:"password"`
+	Verification   bool    `json:"verification" bson:"verification"`
+	DateLastActive int64   `json:"dateLastActive" bson:"dateLastActive"`
+	Albums         []Album `json:"albums" bson:"albums"`
+	DetailInfo     `json:"detailInfo" bson:"detailInfo"`
+}
+
+type Album struct {
+	ID           bson.ObjectId `json:"id" bson:"_id"`
+	Name         string        `json:"name" bson:"name"`
+	TimeToCreate int64         `json:"timeToCreate" bson:"timeToCreate"`
+	Description  string        `json:"description" bson:"description"`
+	Images       []Img         `json:"images" bson:"images"`
+}
+
+type Img struct {
+	Name string `json:"name" bson:"name"`
+	Url  string `json:"url" bson:"url"`
+}
+
+type DetailInfo struct {
+	Avatar          string `json:"avatar" bson:"avatar"`
+	ImageBackground string `json:"imageBackground" bson:"imageBackground"`
+	StatusMessage   string `json:"statusMessage" bson:"statusMessage"`
 }
 
 type Exception struct {
@@ -38,7 +70,22 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, text, 400)
 			return
 		}
-		err := db.GetUsers().Insert(target)
+		var defaultAlbum []Album
+		defaultAlbum = append(defaultAlbum, Album{
+			ID:           bson.NewObjectId(),
+			Name:         "default album",
+			TimeToCreate: time.Now().Unix(),
+		})
+		newUser := User{
+			FirstName:      target.FirstName,
+			LastName:       target.LastName,
+			Email:          target.Email,
+			Password:       target.Password,
+			Verification:   false,
+			DateLastActive: time.Now().Unix(),
+			Albums:         defaultAlbum,
+		}
+		err := db.GetUsers().Insert(&newUser)
 		if err != nil {
 			fmt.Println(err)
 		}
