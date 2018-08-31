@@ -70,27 +70,13 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, text, 400)
 			return
 		}
-		var defaultAlbum []Album
-		defaultAlbum = append(defaultAlbum, Album{
-			ID:           bson.NewObjectId(),
-			Name:         "default album",
-			TimeToCreate: time.Now().Unix(),
-		})
-		newUser := User{
-			FirstName:      target.FirstName,
-			LastName:       target.LastName,
-			Email:          target.Email,
-			Password:       target.Password,
-			Verification:   false,
-			DateLastActive: time.Now().Unix(),
-			Albums:         defaultAlbum,
-		}
+		newUser := createBasicStruct(&target)
 		err := db.GetUsers().Insert(&newUser)
 		if err != nil {
 			fmt.Println(err)
 		}
 		token := createToken(w, target.Email)
-		json.NewEncoder(w).Encode(JwtToken{Token: token})
+		json.NewEncoder(w).Encode(newUser)
 	}
 }
 
@@ -121,6 +107,26 @@ func LogOut(w http.ResponseWriter, r *http.Request) {
 func CheckToken(w http.ResponseWriter, r *http.Request) {
 	if v, _ := validateToken(w, r); v == true {
 		json.NewEncoder(w).Encode(Exception{Message: "ok"})
+	}
+}
+
+func createBasicStruct(t *RequestLogInSignUp) User {
+	var defaultAlbum []Album
+	emptyImages := make([]Img, 0)
+	defaultAlbum = append(defaultAlbum, Album{
+		ID:           bson.NewObjectId(),
+		Name:         "default album",
+		TimeToCreate: time.Now().Unix(),
+		Images:       emptyImages,
+	})
+	return User{
+		FirstName:      t.FirstName,
+		LastName:       t.LastName,
+		Email:          t.Email,
+		Password:       t.Password,
+		Verification:   false,
+		DateLastActive: time.Now().Unix(),
+		Albums:         defaultAlbum,
 	}
 }
 
