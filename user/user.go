@@ -76,7 +76,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 		token := createToken(w, target.Email)
-		json.NewEncoder(w).Encode(newUser)
+		json.NewEncoder(w).Encode(JwtToken{Token: token})
 	}
 }
 
