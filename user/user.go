@@ -67,7 +67,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	if ready := readyData(&target, w, r); ready == true {
 		okValid, text := validateValuesSignUp(&target)
 		if okValid == false {
-			http.Error(w, text, 400)
+			http.Error(w, text, http.StatusInternalServerError)
 			return
 		}
 		newUser := createBasicStruct(&target)
@@ -85,7 +85,7 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 	if ready := readyData(&target, w, r); ready == true {
 		okValid, text := validateValuesLogIn(&target)
 		if okValid == false {
-			http.Error(w, text, 400)
+			http.Error(w, text, http.StatusInternalServerError)
 			return
 		}
 		token := createToken(w, target.Email)
@@ -140,32 +140,32 @@ func validateToken(w http.ResponseWriter, r *http.Request) (bool, string) {
 			return []byte("secret"), nil
 		})
 		if error != nil {
-			http.Error(w, "Invalid authorization token", 400)
+			http.Error(w, "Invalid authorization token", http.StatusInternalServerError)
 			return false, "Invalid authorization token"
 		}
 		if token.Valid {
 			_, err := r.Cookie(authorizationHeader)
 			if err != nil {
-				http.Error(w, "Tocken not found in cookie", 400)
+				http.Error(w, "Tocken not found in cookie", http.StatusInternalServerError)
 				return false, "Tocken not found in cookie"
 			}
 			return true, authorizationHeader
 		}
-		http.Error(w, "Timing is everything", 400)
+		http.Error(w, "Timing is everything", http.StatusInternalServerError)
 		return false, "Timing is everything"
 	}
-	http.Error(w, "An authorization header is required", 400)
+	http.Error(w, "An authorization header is required", http.StatusInternalServerError)
 	return false, "An authorization header is required"
 }
 
 func readyData(target *RequestLogInSignUp, w http.ResponseWriter, r *http.Request) bool {
 	if r.Body == nil {
-		http.Error(w, "Please send a request body", 400)
+		http.Error(w, "Please send a request body", http.StatusInternalServerError)
 		return false
 	}
 	err := json.NewDecoder(r.Body).Decode(&target)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return false
 	}
 

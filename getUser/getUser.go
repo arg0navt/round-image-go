@@ -1,9 +1,13 @@
 package getUser
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"gopkg.in/mgo.v2/bson"
+
+	db "../db"
 	user "../user"
 )
 
@@ -19,7 +23,14 @@ type GetUser struct {
 
 func UserInfo(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	for key, value := range r.Form {
-		fmt.Println(key, ": ", value)
+	if id := r.Form.Get("id"); id != "" {
+		var result GetUser
+		err := db.CollectionUsers().Find(bson.M{"id": bson.ObjectId(id)}).One(&result)
+		fmt.Println(err)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(result)
 	}
 }
