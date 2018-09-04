@@ -83,20 +83,18 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 }
 
 func LogOut(w http.ResponseWriter, r *http.Request) {
-	if v, token := validateToken(w, r); v == true {
-		c := http.Cookie{
-			Name:   token,
-			MaxAge: -1,
-		}
-		http.SetCookie(w, &c)
-		json.NewEncoder(w).Encode(Exception{Message: "ok"})
+	token := db.ValidateToken(w, r)
+	c := http.Cookie{
+		Name:   token,
+		MaxAge: -1,
 	}
+	http.SetCookie(w, &c)
+	json.NewEncoder(w).Encode(Exception{Message: "ok"})
 }
 
 func CheckToken(w http.ResponseWriter, r *http.Request) {
-	if v, _ := validateToken(w, r); v == true {
-		json.NewEncoder(w).Encode(Exception{Message: "ok"})
-	}
+	db.ValidateToken(w, r)
+	json.NewEncoder(w).Encode(Exception{Message: "ok"})
 }
 
 func createBasicStruct(t *RequestLogInSignUp) User {
@@ -110,46 +108,14 @@ func createBasicStruct(t *RequestLogInSignUp) User {
 	}
 }
 
-func validateToken(w http.ResponseWriter, r *http.Request) (bool, string) {
-	authorizationHeader := r.Header.Get("authorization")
-	if authorizationHeader != "" {
-		token, error := jwt.Parse(authorizationHeader, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("There was an error")
-			}
-			return []byte("secret"), nil
-		})
-		if error != nil {
-			http.Error(w, "Invalid authorization token", http.StatusInternalServerError)
-			return false, "Invalid authorization token"
-		}
-		if token.Valid {
-			c, err := r.Cookie(authorizationHeader)
-			if err != nil {
-				http.Error(w, "Tocken not found in cookie", http.StatusInternalServerError)
-				return false, "Tocken not found in cookie"
-			}
-			if id := db.GetUserId(c.Value); id != "" {
-				return true, authorizationHeader
-			}
-			http.Error(w, "user not found", http.StatusInternalServerError)
-			return false, "user not found"
-		}
-		http.Error(w, "Timing is everything", http.StatusInternalServerError)
-		return false, "Timing is everything"
-	}
-	http.Error(w, "An authorization header is required", http.StatusInternalServerError)
-	return false, "An authorization header is required"
-}
-
 func readyData(target *RequestLogInSignUp, w http.ResponseWriter, r *http.Request) bool {
 	if r.Body == nil {
-		http.Error(w, "Please send a request body", http.StatusInternalServerError)
+		http.Error(w, "Please send a request body", http.StatusBadRequest)
 		return false
 	}
 	err := json.NewDecoder(r.Body).Decode(&target)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return false
 	}
 
