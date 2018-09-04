@@ -12,16 +12,29 @@ type Session struct {
 	Value *mgo.Session
 }
 
-var S Session
-
-func CollectionUsers() *mgo.Collection {
-	return S.Value.DB(DB).C("users")
+type UserID struct {
+	ID bson.ObjectId `json:"id" bson:"_id"`
 }
 
-func ThereIsUser(email string) bool {
-	result, _ := S.Value.DB(DB).C("users").Find(bson.M{"email": email}).Count()
+var S Session
+
+func GetCollection(name string) *mgo.Collection {
+	return S.Value.DB(DB).C(name)
+}
+
+func ThereIsUserEmail(email string) bool {
+	result, _ := GetCollection("users").Find(bson.M{"email": email}).Count()
 	if result != 0 {
 		return true
 	}
 	return false
+}
+
+func GetUserId(email string) string {
+	var result UserID
+	err := GetCollection("users").Find(bson.M{"email": email}).One(&result)
+	if err != nil {
+		return ""
+	}
+	return string(result.ID)
 }

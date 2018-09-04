@@ -8,8 +8,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"gopkg.in/mgo.v2/bson"
-
 	"../db"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/fatih/structs"
@@ -25,22 +23,13 @@ type RequestLogInSignUp struct {
 }
 
 type User struct {
-	FirstName      string  `json:"first_name" bson:"first_name"`
-	LastName       string  `json:"last_name" bson:"last_name"`
-	Email          string  `json:"email" bson:"email"`
-	Password       string  `json:"password" bson:"password"`
-	Verification   bool    `json:"verification" bson:"verification"`
-	DateLastActive int64   `json:"dateLastActive" bson:"dateLastActive"`
-	Albums         []Album `json:"albums" bson:"albums"`
+	FirstName      string `json:"first_name" bson:"first_name"`
+	LastName       string `json:"last_name" bson:"last_name"`
+	Email          string `json:"email" bson:"email"`
+	Password       string `json:"password" bson:"password"`
+	Verification   bool   `json:"verification" bson:"verification"`
+	DateLastActive int64  `json:"dateLastActive" bson:"dateLastActive"`
 	DetailInfo     `json:"detailInfo" bson:"detailInfo"`
-}
-
-type Album struct {
-	ID           bson.ObjectId `json:"id" bson:"_id"`
-	Name         string        `json:"name" bson:"name"`
-	TimeToCreate int64         `json:"timeToCreate" bson:"timeToCreate"`
-	Description  string        `json:"description" bson:"description"`
-	Images       []Img         `json:"images" bson:"images"`
 }
 
 type Img struct {
@@ -71,7 +60,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		newUser := createBasicStruct(&target)
-		err := db.CollectionUsers().Insert(&newUser)
+		err := db.GetCollection("users").Insert(&newUser)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -111,14 +100,6 @@ func CheckToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func createBasicStruct(t *RequestLogInSignUp) User {
-	var defaultAlbum []Album
-	emptyImages := make([]Img, 0)
-	defaultAlbum = append(defaultAlbum, Album{
-		ID:           bson.NewObjectId(),
-		Name:         "default album",
-		TimeToCreate: time.Now().Unix(),
-		Images:       emptyImages,
-	})
 	return User{
 		FirstName:      t.FirstName,
 		LastName:       t.LastName,
@@ -126,7 +107,6 @@ func createBasicStruct(t *RequestLogInSignUp) User {
 		Password:       t.Password,
 		Verification:   false,
 		DateLastActive: time.Now().Unix(),
-		Albums:         defaultAlbum,
 	}
 }
 
@@ -144,12 +124,16 @@ func validateToken(w http.ResponseWriter, r *http.Request) (bool, string) {
 			return false, "Invalid authorization token"
 		}
 		if token.Valid {
-			_, err := r.Cookie(authorizationHeader)
+			c, err := r.Cookie(authorizationHeader)
 			if err != nil {
 				http.Error(w, "Tocken not found in cookie", http.StatusInternalServerError)
 				return false, "Tocken not found in cookie"
 			}
-			return true, authorizationHeader
+			if id := db.GetUserId(c.Value); id != "" {
+				return true, authorizationHeader
+			}
+			http.Error(w, "user not found", http.StatusInternalServerError)
+			return false, "user not found"
 		}
 		http.Error(w, "Timing is everything", http.StatusInternalServerError)
 		return false, "Timing is everything"
@@ -181,7 +165,7 @@ func createToken(w http.ResponseWriter, e string) string {
 	tokenString, _ := token.SignedString([]byte("secret"))
 	http.SetCookie(w, &http.Cookie{
 		Name:   tokenString,
-		Value:  tokenString,
+		Value:  e,
 		MaxAge: maxAge,
 	})
 	return tokenString
@@ -198,7 +182,7 @@ func validateValuesSignUp(values *RequestLogInSignUp) (bool, string) {
 			}
 		case "Email":
 			emailV := validate(value.(string), `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`, 5, 50)
-			if db.ThereIsUser(value.(string)) == true {
+			if db.ThereIsUserEmail(value.(string)) == true {
 				return false, "occupied email"
 			}
 			if emailV == false {
