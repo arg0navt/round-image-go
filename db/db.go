@@ -14,7 +14,7 @@ type Session struct {
 
 var S Session
 
-func GetUsers() *mgo.Collection {
+func CollectionUsers() *mgo.Collection {
 	return S.Value.DB(DB).C("users")
 }
 

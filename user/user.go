@@ -71,7 +71,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		newUser := createBasicStruct(&target)
-		err := db.GetUsers().Insert(&newUser)
+		err := db.CollectionUsers().Insert(&newUser)
 		if err != nil {
 			fmt.Println(err)
 		}

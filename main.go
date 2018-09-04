@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"./db"
+	getUser "./getUser"
 	"./parse"
 	user "./user"
 	"github.com/gorilla/mux"
@@ -36,5 +37,6 @@ func main() {
 	router.HandleFunc("/log-out", user.LogOut)
 	router.HandleFunc("/log-in", user.LogIn).Methods("POST")
 	router.HandleFunc("/parse", parse.ParseUsers)
+	router.HandleFunc("/user", getUser.UserInfo)
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
