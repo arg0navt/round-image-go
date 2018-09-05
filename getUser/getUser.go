@@ -2,6 +2,7 @@ package getUser
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"gopkg.in/mgo.v2/bson"
@@ -10,11 +11,18 @@ import (
 	user "../user"
 )
 
-// type UserInterface interface {
-// 	takeUserInfo(c chan int, id string)
-// }
+type getUser interface {
+	takeUserAlbums()
+	takeUserInfo()
+}
 
-type GetUser struct {
+type requestUser struct {
+	id     string
+	group  chan error
+	result *User
+}
+
+type User struct {
 	ID              bson.ObjectId `json:"id" bson:"_id"`
 	FirstName       string        `json:"first_name" bson:"first_name"`
 	LastName        string        `json:"last_name" bson:"last_name"`
@@ -34,38 +42,35 @@ type GetAlbum struct {
 
 func UserInfo(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	var u GetUser
 	if id := r.Form.Get("id"); id != "" {
+		albums := make([]GetAlbum, 0)
+		newUser := User{Albums: albums}
+		newRequestUser := requestUser{id: id, group: make(chan error), result: &newUser}
+		u := getUser(newRequestUser)
 		count := 0
-		group := make(chan string)
-		go u.takeUserInfo(group, id)
-		go u.takeUserAlbums(group, id)
+		go u.takeUserInfo()
+		go u.takeUserAlbums()
 		for count <= 1 {
 			select {
-			case result := <-group:
-				if result != "" {
-					http.Error(w, result, http.StatusInternalServerError)
+			case err := <-newRequestUser.group:
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 				count++
 			}
 		}
-		json.NewEncoder(w).Encode(u)
+		fmt.Println(newRequestUser)
+		json.NewEncoder(w).Encode(newRequestUser.result)
 	}
 }
 
-func (u *GetUser) takeUserInfo(c chan string, id string) {
-	err := db.GetCollection("users").FindId(bson.ObjectIdHex(id)).One(&u)
-	if err != nil {
-		c <- "user not found"
-	}
-	c <- ""
+func (u requestUser) takeUserInfo() {
+	err := db.GetCollection("users").FindId(bson.ObjectIdHex(u.id)).One(&u.result)
+	u.group <- err
 }
 
-func (u *GetUser) takeUserAlbums(c chan string, id string) {
-	err := db.GetCollection("albums").Find(bson.M{"userId": bson.ObjectIdHex(id)}).All(&u.Albums)
-	if err != nil {
-		c <- "error get user albums"
-	}
-	c <- ""
+func (u requestUser) takeUserAlbums() {
+	err := db.GetCollection("albums").Find(bson.M{"userId": bson.ObjectIdHex(u.id)}).All(&u.result.Albums)
+	u.group <- err
 }
