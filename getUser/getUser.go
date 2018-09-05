@@ -2,7 +2,6 @@ package getUser
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"gopkg.in/mgo.v2/bson"
@@ -60,7 +59,6 @@ func UserInfo(w http.ResponseWriter, r *http.Request) {
 				count++
 			}
 		}
-		fmt.Println(newRequestUser)
 		json.NewEncoder(w).Encode(newRequestUser.result)
 	}
 }

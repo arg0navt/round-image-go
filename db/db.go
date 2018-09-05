@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -43,7 +44,7 @@ func GetUserId(email string) string {
 	return string(result.ID)
 }
 
-func ValidateToken(w http.ResponseWriter, r *http.Request) string {
+func ValidateToken(w http.ResponseWriter, r *http.Request) (string, error) {
 	authorizationHeader := r.Header.Get("authorization")
 	if authorizationHeader != "" {
 		token, error := jwt.Parse(authorizationHeader, func(token *jwt.Token) (interface{}, error) {
@@ -53,24 +54,19 @@ func ValidateToken(w http.ResponseWriter, r *http.Request) string {
 			return []byte("secret"), nil
 		})
 		if error != nil {
-			http.Error(w, "Invalid authorization token", http.StatusUnauthorized)
-			return ""
+			return "", errors.New("Invalid authorization token")
 		}
 		if token.Valid {
 			c, err := r.Cookie(authorizationHeader)
 			if err != nil {
-				http.Error(w, "Tocken not found in cookie", http.StatusUnauthorized)
-				return ""
+				return "", errors.New("Tocken not found in cookie")
 			}
 			if id := GetUserId(c.Value); id != "" {
-				return id
+				return id, nil
 			}
-			http.Error(w, "user not found", http.StatusUnauthorized)
-			return ""
+			return "", errors.New("User not found")
 		}
-		http.Error(w, "Timing is everything", http.StatusUnauthorized)
-		return ""
+		return "", errors.New("Timing is everything")
 	}
-	http.Error(w, "An authorization header is required", http.StatusUnauthorized)
-	return ""
+	return "", errors.New("An authorization header is required")
 }

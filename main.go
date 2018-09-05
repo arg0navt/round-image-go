@@ -40,5 +40,6 @@ func main() {
 	router.HandleFunc("/parse", parse.ParseUsers)
 	router.HandleFunc("/user", getUser.UserInfo)
 	router.HandleFunc("/create_album", images.CreateAlbum).Methods("POST")
+	router.HandleFunc("/load_image", images.LoadImage).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

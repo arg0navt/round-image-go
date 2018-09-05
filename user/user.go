@@ -83,7 +83,10 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 }
 
 func LogOut(w http.ResponseWriter, r *http.Request) {
-	token := db.ValidateToken(w, r)
+	token, err := db.ValidateToken(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+	}
 	c := http.Cookie{
 		Name:   token,
 		MaxAge: -1,
@@ -93,7 +96,10 @@ func LogOut(w http.ResponseWriter, r *http.Request) {
 }
 
 func CheckToken(w http.ResponseWriter, r *http.Request) {
-	db.ValidateToken(w, r)
+	_, err := db.ValidateToken(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+	}
 	json.NewEncoder(w).Encode(Exception{Message: "ok"})
 }
 
