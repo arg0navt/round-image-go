@@ -6,41 +6,66 @@ import (
 
 	"gopkg.in/mgo.v2/bson"
 
-	db "../db"
+	"../db"
 	user "../user"
 )
 
+// type UserInterface interface {
+// 	takeUserInfo(c chan int, id string)
+// }
+
 type GetUser struct {
-	FirstName       string `json:"first_name" bson:"first_name"`
-	LastName        string `json:"last_name" bson:"last_name"`
-	Email           string `json:"email" bson:"email"`
-	Verification    bool   `json:"verification" bson:"verification"`
-	DateLastActive  int64  `json:"dateLastActive" bson:"dateLastActive"`
+	ID              bson.ObjectId `json:"id" bson:"_id"`
+	FirstName       string        `json:"first_name" bson:"first_name"`
+	LastName        string        `json:"last_name" bson:"last_name"`
+	Email           string        `json:"email" bson:"email"`
+	Verification    bool          `json:"verification" bson:"verification"`
+	DateLastActive  int64         `json:"dateLastActive" bson:"dateLastActive"`
 	user.DetailInfo `json:"detailInfo" bson:"detailInfo"`
+	Albums          []GetAlbum `json:"albums" bson:"albums"`
 }
 
-type UserID struct {
-	ID bson.ObjectId `json:"id" bson:"_id"`
+type GetAlbum struct {
+	ID           bson.ObjectId `json:"id" bson:"_id"`
+	Name         string        `json:"name" bson:"name"`
+	TimeToCreate int64         `json:"timeToCreate" bson:"timeToCreate"`
+	Description  string        `json:"description" bson:"description"`
 }
 
 func UserInfo(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	var u GetUser
 	if id := r.Form.Get("id"); id != "" {
-		var result GetUser
-		err := db.GetCollection("users").FindId(bson.ObjectIdHex(id)).One(&result)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		count := 0
+		group := make(chan string)
+		go u.takeUserInfo(group, id)
+		go u.takeUserAlbums(group, id)
+		for count <= 1 {
+			select {
+			case result := <-group:
+				if result != "" {
+					http.Error(w, result, http.StatusInternalServerError)
+					return
+				}
+				count++
+			}
 		}
-		json.NewEncoder(w).Encode(result)
+		json.NewEncoder(w).Encode(u)
 	}
 }
 
-func GetUserId(email string) string {
-	var result UserID
-	err := db.GetCollection("users").Find(bson.M{"email": email}).One(&result)
+func (u *GetUser) takeUserInfo(c chan string, id string) {
+	err := db.GetCollection("users").FindId(bson.ObjectIdHex(id)).One(&u)
 	if err != nil {
-		return ""
+		c <- "user not found"
 	}
-	return string(result.ID)
+	c <- ""
+}
+
+func (u *GetUser) takeUserAlbums(c chan string, id string) {
+	err := db.GetCollection("albums").Find(bson.M{"userId": bson.ObjectIdHex(id)}).All(&u.Albums)
+	if err != nil {
+		c <- "error get user albums"
+	}
+	c <- ""
 }
