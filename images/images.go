@@ -1,10 +1,12 @@
 package images
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"../db"
@@ -14,12 +16,6 @@ import (
 type RequestCreateAlbum struct {
 	Name        string `json:"name" bson:"name"`
 	Description string `json:"description" bson:"description"`
-}
-
-type RequestLoadImg struct {
-	AlbumID string          `json:"albumId" bson:"albumId"`
-	Time    int64           `json:"time" bson:"time"`
-	img     base64.Encoding `json:"img" bson:"img"`
 }
 
 type Album struct {
@@ -65,16 +61,19 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var target RequestLoadImg
-	if r.Body == nil {
-		http.Error(w, "Please send a request body", http.StatusBadRequest)
-		return
-	}
-	err = json.NewDecoder(r.Body).Decode(&target)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	r.ParseMultipartForm(1024)
+	workWithImg(r)
+	// var target RequestLoadImg
+	// if r.Body == nil {
+	// 	http.Error(w, "Please send a request body", http.StatusBadRequest)
+	// 	return
+	// }
+	// err = json.NewDecoder(r.Body).Decode(&target)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusBadRequest)
+	// 	return
+	// }
+	// fmt.Printf(target.Img)
 	defaultAlbumId, errDefault := foundDefaultAlbum(id)
 	if errDefault != nil {
 		createAlbumId, errD := createDefaultAlbum(id)
@@ -85,6 +84,23 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 		defaultAlbumId = createAlbumId
 	}
 	json.NewEncoder(w).Encode(&defaultAlbumId)
+}
+
+func workWithImg(r *http.Request) {
+	r.ParseMultipartForm(1024)
+	file, handler, err := r.FormFile("img")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+	f, err := os.OpenFile("./src/img/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer f.Close()
+	io.Copy(f, file)
 }
 
 func foundDefaultAlbum(id string) (AlbumId, error) {
