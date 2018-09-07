@@ -32,6 +32,7 @@ type Album struct {
 }
 
 type Img struct {
+	Id         bson.ObjectId `json:"id" bson:"_id"`
 	Name       string        `json:"name" bson:"name"`
 	Time       int64         `json:"time" bson:"time"`
 	AlbumId    bson.ObjectId `json:"albumId" bson:"albumId"`
@@ -88,8 +89,7 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "album is not found", http.StatusNoContent)
 			return
 		}
-		workWithImg(w, r, findAlbum)
-		return
+		workWithPicher(w, r, findAlbum)
 	}
 	defaultAlbumId, errDefault := foundDefaultAlbum(id)
 	if errDefault != nil {
@@ -100,57 +100,76 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 		}
 		defaultAlbumId = createAlbumId
 	}
-	workWithImg(w, r, defaultAlbumId)
+	workWithPicher(w, r, defaultAlbumId)
 }
 
-func workWithImg(w http.ResponseWriter, r *http.Request, albumId AlbumId) {
-	var newImg Img
-	file, handler, err := r.FormFile("img")
+func workWithPicher(w http.ResponseWriter, r *http.Request, album AlbumId) {
+	img, err := setImg(r, album)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	err = addPicherToBD(&img)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(&img)
+}
+
+func addPicherToBD(img *Img) error {
+	err := db.GetCollection("images").Insert(&img)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func setImg(r *http.Request, albumId AlbumId) (Img, error) {
+	var newImg Img
+	file, handler, err := r.FormFile("img")
+	if err != nil {
+		return newImg, err
+	}
 	defer file.Close()
 	if handler.Header["Content-Type"][0] != "image/jpeg" && handler.Header["Content-Type"][0] != "image/png" {
-		http.Error(w, "unvalidate format", http.StatusBadRequest)
-		return
+		return newImg, errors.New("unvalidate format")
 	}
 	fileName := strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + handler.Filename
 	fCreate, err := os.Create("./src/img/" + fileName)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return newImg, err
 	}
 	newImg = Img{Name: handler.Filename, Url: fileName, Time: time.Now().Unix(), AlbumId: albumId.ID}
 	defer fCreate.Close()
 	io.Copy(fCreate, file)
 	infoPicher, err := getInfoImg(fileName)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return newImg, err
 	}
 	if infoPicher.Width < 400 {
+		newImg.Id = bson.NewObjectId()
 		newImg.UrlPreview = fileName
-		json.NewEncoder(w).Encode(&newImg)
-		return
+		return newImg, nil
 	}
 	var preview string
 	if infoPicher.Format == "jpeg" {
 		previewName, err := createPreviewJpeg(fileName)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			return newImg, err
 		}
 		preview = previewName
 	}
 	if infoPicher.Format == "png" {
 		previewName, err := createPreviewPng(fileName)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			return newImg, err
 		}
 		preview = previewName
 	}
+	newImg.Id = bson.NewObjectId()
 	newImg.UrlPreview = preview
-	json.NewEncoder(w).Encode(&newImg)
+	return newImg, nil
 }
 
 func createPreviewJpeg(fileName string) (string, error) {
