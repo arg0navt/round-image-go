@@ -18,6 +18,7 @@ import (
 )
 
 const WIDTH_PREVIEW = 450
+const PATH_TO_IMG = "./src/img/"
 
 type RequestCreateAlbum struct {
 	Name        string `json:"name" bson:"name"`
@@ -127,23 +128,12 @@ func addPicherToBD(img *Img) error {
 
 func setImg(r *http.Request, albumId AlbumId) (Img, error) {
 	var newImg Img
-	file, handler, err := r.FormFile("img")
+	fileName, err := pushImg(r)
 	if err != nil {
 		return newImg, err
 	}
-	defer file.Close()
-	if handler.Header["Content-Type"][0] != "image/jpeg" && handler.Header["Content-Type"][0] != "image/png" {
-		return newImg, errors.New("unvalidate format")
-	}
-	fileName := strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + handler.Filename
-	fCreate, err := os.Create("./src/img/" + fileName)
-	if err != nil {
-		return newImg, err
-	}
-	newImg = Img{Name: handler.Filename, Url: fileName, Time: time.Now().Unix(), AlbumId: albumId.ID}
-	defer fCreate.Close()
-	io.Copy(fCreate, file)
-	infoPicher, err := getInfoImg(fileName)
+	newImg = Img{Name: fileName, Url: fileName, Time: time.Now().Unix(), AlbumId: albumId.ID}
+	infoPicher, err := getInfoImg(PATH_TO_IMG + fileName)
 	if err != nil {
 		return newImg, err
 	}
@@ -152,62 +142,62 @@ func setImg(r *http.Request, albumId AlbumId) (Img, error) {
 		newImg.UrlPreview = fileName
 		return newImg, nil
 	}
-	var preview string
-	if infoPicher.Format == "jpeg" {
-		previewName, err := createPreviewJpeg(fileName)
-		if err != nil {
-			return newImg, err
-		}
-		preview = previewName
-	}
-	if infoPicher.Format == "png" {
-		previewName, err := createPreviewPng(fileName)
-		if err != nil {
-			return newImg, err
-		}
-		preview = previewName
+	preview, err := createPreview(fileName, infoPicher.Format)
+	if err != nil {
+		return newImg, err
 	}
 	newImg.Id = bson.NewObjectId()
 	newImg.UrlPreview = preview
 	return newImg, nil
 }
 
-func createPreviewJpeg(fileName string) (string, error) {
-	openImg, err := os.Open("./src/img/" + fileName)
+func pushImg(r *http.Request) (string, error) {
+	file, handler, err := r.FormFile("img")
 	if err != nil {
 		return "", err
 	}
-	defer openImg.Close()
-	img, err := jpeg.Decode(openImg)
+	if handler.Header["Content-Type"][0] != "image/jpeg" && handler.Header["Content-Type"][0] != "image/png" {
+		return "", errors.New("unvalidate format")
+	}
+	fileName := strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + handler.Filename
+	fCreate, err := os.Create(PATH_TO_IMG + fileName)
 	if err != nil {
 		return "", err
 	}
-	m := resize.Resize(WIDTH_PREVIEW, 0, img, resize.Lanczos3)
-	preview, err := os.Create("./src/img/" + "preview_" + fileName)
-	defer preview.Close()
-	jpeg.Encode(preview, m, nil)
-	return "preview_" + fileName, nil
+	defer file.Close()
+	defer fCreate.Close()
+	io.Copy(fCreate, file)
+	return fileName, nil
 }
 
-func createPreviewPng(fileName string) (string, error) {
-	openImg, err := os.Open("./src/img/" + fileName)
+func createPreview(fileName string, format string) (string, error) {
+	openImg, err := os.Open(PATH_TO_IMG + fileName)
 	if err != nil {
 		return "", err
 	}
 	defer openImg.Close()
-	img, err := png.Decode(openImg)
+	var img image.Image
+	if format == "jpeg" {
+		img, err = jpeg.Decode(openImg)
+	} else {
+		img, err = png.Decode(openImg)
+	}
 	if err != nil {
 		return "", err
 	}
 	m := resize.Resize(WIDTH_PREVIEW, 0, img, resize.Lanczos3)
 	preview, err := os.Create("./src/img/" + "preview_" + fileName)
 	defer preview.Close()
-	png.Encode(preview, m)
+	if format == "jpeg" {
+		jpeg.Encode(preview, m, nil)
+	} else {
+		png.Encode(preview, m)
+	}
 	return "preview_" + fileName, nil
 }
 
 func getInfoImg(fileName string) (ImgInfo, error) {
-	openImg, err := os.Open("./src/img/" + fileName)
+	openImg, err := os.Open(fileName)
 	if err != nil {
 		return ImgInfo{}, err
 	}
