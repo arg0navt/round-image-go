@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"../db"
@@ -23,6 +26,14 @@ type Album struct {
 	TimeOfCreate int64         `json:"timeOfCreate" bson:"timeOfCreate"`
 	Description  string        `json:"description" bson:"description"`
 	UserID       bson.ObjectId `json:"userId" bson:"userId"`
+}
+
+type Img struct {
+	Name        string        `json:"name" bson:"name"`
+	Time        int64         `json:"time" bson:"time"`
+	AlbumId     bson.ObjectId `json:"albumId" bson:"albumId"`
+	Url         string        `json:"url" bson:"url"`
+	Url_preview string        `json:"urlPreview" bson:"urlPreview"`
 }
 
 type AlbumId struct {
@@ -62,18 +73,15 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseMultipartForm(1024)
-	workWithImg(r)
-	// var target RequestLoadImg
-	// if r.Body == nil {
-	// 	http.Error(w, "Please send a request body", http.StatusBadRequest)
-	// 	return
-	// }
-	// err = json.NewDecoder(r.Body).Decode(&target)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusBadRequest)
-	// 	return
-	// }
-	// fmt.Printf(target.Img)
+	if r.FormValue("albumId") != "" {
+		findAlbum, err := foundAlbum(id, r.FormValue("albumId"))
+		if err != nil {
+			http.Error(w, "album is not found", http.StatusNoContent)
+			return
+		}
+		workWithImg(w, r, findAlbum)
+		return
+	}
 	defaultAlbumId, errDefault := foundDefaultAlbum(id)
 	if errDefault != nil {
 		createAlbumId, errD := createDefaultAlbum(id)
@@ -83,24 +91,52 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 		}
 		defaultAlbumId = createAlbumId
 	}
-	json.NewEncoder(w).Encode(&defaultAlbumId)
+	workWithImg(w, r, defaultAlbumId)
 }
 
-func workWithImg(r *http.Request) {
-	r.ParseMultipartForm(1024)
+func workWithImg(w http.ResponseWriter, r *http.Request, albumId AlbumId) {
+	var newImg Img
 	file, handler, err := r.FormFile("img")
 	if err != nil {
-		fmt.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
-	f, err := os.OpenFile("./src/img/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		fmt.Println(err)
+	fmt.Println(handler.Header["Content-Type"][0] == "image/jpeg")
+	if handler.Header["Content-Type"][0] != "image/jpeg" {
+		http.Error(w, "unvalidate format", http.StatusBadRequest)
 		return
 	}
-	defer f.Close()
-	io.Copy(f, file)
+	fileName := strconv.FormatInt(time.Now().Unix(), 10) + "_" + handler.Filename
+	fCreate, err := os.Create("./src/img/" + fileName)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	newImg.Name = handler.Filename
+	newImg.Url = fileName
+	newImg.Time = time.Now().Unix()
+	newImg.AlbumId = albumId.ID
+	defer fCreate.Close()
+	io.Copy(fCreate, file)
+	// c, _, e := image.DecodeConfig(file)
+	// if e != nil {
+	// 	http.Error(w, e.Error(), http.StatusBadRequest)
+	// 	return
+	// }
+	json.NewEncoder(w).Encode(&newImg)
+	// if c.Width < 400 {
+
+	// }
+}
+
+func foundAlbum(id string, albumId string) (AlbumId, error) {
+	var getAlbum AlbumId
+	err := db.GetCollection("albums").Find(bson.M{"_id": bson.ObjectId(albumId), "userId": bson.ObjectId(id)}).One(&getAlbum)
+	if err != nil {
+		return getAlbum, err
+	}
+	return getAlbum, nil
 }
 
 func foundDefaultAlbum(id string) (AlbumId, error) {
