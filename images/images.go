@@ -18,7 +18,7 @@ import (
 )
 
 const WIDTH_PREVIEW = 450
-const PATH_TO_IMG = "./src/img/"
+const PATH_TO_IMG = "./src/img"
 
 type RequestCreateAlbum struct {
 	Name        string `json:"name" bson:"name"`
