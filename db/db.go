@@ -13,18 +13,17 @@ import (
 const URL = "localhost:27017"
 const DB = "rimg"
 
-type Session struct {
-	Value *mgo.Session
-}
-
 type UserID struct {
 	ID bson.ObjectId `json:"id" bson:"_id"`
 }
 
-var S Session
-
 func GetCollection(name string) *mgo.Collection {
-	return S.Value.DB(DB).C(name)
+	session, err := mgo.Dial("localhost:27017")
+	if err != nil {
+		panic(err)
+	}
+	defer session.Close()
+	return session.DB(DB).C(name)
 }
 
 func ThereIsUserEmail(email string) bool {

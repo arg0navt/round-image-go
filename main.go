@@ -5,9 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"./db"
-	"./getUser"
 	"./images"
+	"./login"
 	"./parse"
 	"./user"
 	"github.com/gorilla/mux"
@@ -29,16 +28,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	db.S = db.Session{session}
-	defer db.S.Value.Close()
+	defer session.Close()
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", Index)
-	router.HandleFunc("/check_token", user.CheckToken)
-	router.HandleFunc("/sign_up", user.CreateUser).Methods("POST")
-	router.HandleFunc("/log_out", user.LogOut)
-	router.HandleFunc("/log_in", user.LogIn).Methods("POST")
+	router.HandleFunc("/check_token", login.CheckToken)
+	router.HandleFunc("/sign_up", login.CreateUser).Methods("POST")
+	router.HandleFunc("/log_out", login.LogOut)
+	router.HandleFunc("/log_in", login.LogIn).Methods("POST")
 	router.HandleFunc("/parse", parse.ParseUsers)
-	router.HandleFunc("/user", getUser.UserInfo)
+	router.HandleFunc("/user", user.UserInfo)
 	router.HandleFunc("/create_album", images.CreateAlbum).Methods("POST")
 	router.HandleFunc("/load_image", images.LoadImage).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8080", router))
