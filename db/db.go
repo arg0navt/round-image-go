@@ -17,30 +17,55 @@ type UserID struct {
 	ID bson.ObjectId `json:"id" bson:"_id"`
 }
 
-func GetCollection(name string) *mgo.Collection {
-	session, err := mgo.Dial("localhost:27017")
-	if err != nil {
-		panic(err)
-	}
-	defer session.Close()
-	return session.DB(DB).C(name)
+type UseDb interface {
+	CreateSession() error
+	CloseSession()
+	GetCollection(name string) *mgo.Collection
 }
 
-func ThereIsUserEmail(email string) bool {
-	result, _ := GetCollection("users").Find(bson.M{"email": email}).Count()
+type Session struct {
+	Value *mgo.Session
+}
+
+func (s Session) CreateSession() error {
+	connect, err := mgo.Dial(URL)
+	if err != nil {
+		return err
+	}
+	s.Value = connect
+	return nil
+}
+
+func (s Session) CloseSession() {
+	s.Value.Close()
+}
+
+func (s Session) GetCollection(name string) *mgo.Collection {
+	return s.Value.DB(DB).C(name)
+}
+
+func ThereIsUserEmail(s UseDb, email string) bool {
+	result, _ := s.GetCollection("users").Find(bson.M{"email": email}).Count()
 	if result != 0 {
 		return true
 	}
 	return false
 }
 
-func GetUserId(email string) string {
+func GetUserId(email string) (string, error) {
 	var result UserID
-	err := GetCollection("users").Find(bson.M{"email": email}).One(&result)
+	var c Session
+	s := UseDb(&c)
+	err := s.CreateSession()
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return string(result.ID)
+	err = s.GetCollection("users").Find(bson.M{"email": email}).One(&result)
+	if err != nil {
+		return "", err
+	}
+	defer s.CloseSession()
+	return string(result.ID), nil
 }
 
 func ValidateToken(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -60,10 +85,10 @@ func ValidateToken(w http.ResponseWriter, r *http.Request) (string, error) {
 			if err != nil {
 				return "", errors.New("Tocken not found in cookie")
 			}
-			if id := GetUserId(c.Value); id != "" {
+			if id, err := GetUserId(c.Value); err == nil {
 				return id, nil
 			}
-			return "", errors.New("User not found")
+			return "", err
 		}
 		return "", errors.New("Timing is everything")
 	}

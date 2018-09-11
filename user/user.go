@@ -11,8 +11,8 @@ import (
 )
 
 type getUser interface {
-	takeUserAlbums()
-	takeUserInfo()
+	takeUserAlbums(s db.UseDb)
+	takeUserInfo(s db.UseDb)
 }
 
 type requestUser struct {
@@ -47,8 +47,10 @@ func UserInfo(w http.ResponseWriter, r *http.Request) {
 		newRequestUser := requestUser{id: id, group: make(chan error), result: &newUser}
 		u := getUser(newRequestUser)
 		count := 0
-		go u.takeUserInfo()
-		go u.takeUserAlbums()
+		var s db.UseDb = db.Session{}
+		defer s.CloseSession()
+		go u.takeUserInfo(s)
+		go u.takeUserAlbums(s)
 		for count <= 1 {
 			select {
 			case err := <-newRequestUser.group:
@@ -63,12 +65,12 @@ func UserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (u requestUser) takeUserInfo() {
-	err := db.GetCollection("users").FindId(bson.ObjectIdHex(u.id)).One(&u.result)
+func (u requestUser) takeUserInfo(s db.UseDb) {
+	err := s.GetCollection("users").FindId(bson.ObjectIdHex(u.id)).One(&u.result)
 	u.group <- err
 }
 
-func (u requestUser) takeUserAlbums() {
-	err := db.GetCollection("albums").Find(bson.M{"userId": bson.ObjectIdHex(u.id)}).All(&u.result.Albums)
+func (u requestUser) takeUserAlbums(s db.UseDb) {
+	err := s.GetCollection("albums").Find(bson.M{"userId": bson.ObjectIdHex(u.id)}).All(&u.result.Albums)
 	u.group <- err
 }

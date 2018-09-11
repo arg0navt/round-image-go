@@ -2,6 +2,7 @@ package login
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 	"../db"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/fatih/structs"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const maxAge = 86400 // duration valid token
@@ -54,13 +56,20 @@ type JwtToken struct {
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var target RequestLogInSignUp
 	if ready := readyData(&target, w, r); ready == true {
-		okValid, text := validateValuesSignUp(&target)
+		var s db.UseDb = db.Session{}
+		err := s.CreateSession()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer s.CloseSession()
+		okValid, err := validateValuesSignUp(&target, s)
 		if okValid == false {
-			http.Error(w, text, http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		newUser := createBasicStruct(&target)
-		err := db.GetCollection("users").Insert(&newUser)
+		err = s.GetCollection("users").Insert(&newUser)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -72,9 +81,25 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 func LogIn(w http.ResponseWriter, r *http.Request) {
 	var target RequestLogInSignUp
 	if ready := readyData(&target, w, r); ready == true {
-		okValid, text := validateValuesLogIn(&target)
+		okValid, err := validateValuesLogIn(&target)
 		if okValid == false {
-			http.Error(w, text, http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var s db.UseDb = db.Session{}
+		err = s.CreateSession()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// defer s.CloseSession()
+		count, errCount := s.GetCollection("users").Find(bson.M{"email": target.Email, "password": target.Password}).Count()
+		if errCount != nil {
+			http.Error(w, errCount.Error(), http.StatusInternalServerError)
+			return
+		}
+		if count == 0 {
+			http.Error(w, "User not found", http.StatusInternalServerError)
 			return
 		}
 		token := createToken(w, target.Email)
@@ -145,50 +170,50 @@ func createToken(w http.ResponseWriter, e string) string {
 	return tokenString
 }
 
-func validateValuesSignUp(values *RequestLogInSignUp) (bool, string) {
+func validateValuesSignUp(values *RequestLogInSignUp, s db.UseDb) (bool, error) {
 	mapValues := structs.Map(values)
 	for key, value := range mapValues {
 		switch key {
 		case "FirstName", "LastName":
 			nameV := validate(value.(string), `[a-zA-Z]`, 2, 32)
 			if nameV == false {
-				return false, "name error"
+				return false, errors.New("name error")
 			}
 		case "Email":
 			emailV := validate(value.(string), `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`, 5, 50)
-			if db.ThereIsUserEmail(value.(string)) == true {
-				return false, "occupied email"
+			if db.ThereIsUserEmail(s, value.(string)) == true {
+				return false, errors.New("occupied email")
 			}
 			if emailV == false {
-				return false, "email error"
+				return false, errors.New("email error")
 			}
 		case "Password":
 			passV := validate(value.(string), `[a-zA-Z0-9]`, 8, 20)
 			if passV == false {
-				return false, "password error"
+				return false, errors.New("password error")
 			}
 		}
 	}
-	return true, "validate"
+	return true, nil
 }
 
-func validateValuesLogIn(values *RequestLogInSignUp) (bool, string) {
+func validateValuesLogIn(values *RequestLogInSignUp) (bool, error) {
 	mapValues := structs.Map(values)
 	for key, value := range mapValues {
 		switch key {
 		case "Email":
 			emailV := validate(value.(string), `^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`, 5, 50)
 			if emailV == false {
-				return false, "email error"
+				return false, errors.New("email error")
 			}
 		case "Password":
 			passV := validate(value.(string), `[a-zA-Z0-9]`, 8, 20)
 			if passV == false {
-				return false, "password error"
+				return false, errors.New("password error")
 			}
 		}
 	}
-	return true, "validate"
+	return true, nil
 }
 
 func validate(t string, reg string, min int, max int) bool {
