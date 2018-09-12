@@ -47,7 +47,7 @@ func UserInfo(w http.ResponseWriter, r *http.Request) {
 		newRequestUser := requestUser{id: id, group: make(chan error), result: &newUser}
 		u := getUser(newRequestUser)
 		count := 0
-		var s db.UseDb = db.Session{}
+		var s db.UseDb = &db.Session{}
 		defer s.CloseSession()
 		go u.takeUserInfo(s)
 		go u.takeUserAlbums(s)

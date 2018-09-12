@@ -73,7 +73,7 @@ func CreateAlbum(w http.ResponseWriter, r *http.Request) {
 		Description:  target.Description,
 		UserID:       bson.ObjectId(id),
 	}
-	var s db.UseDb = db.Session{}
+	var s db.UseDb = &db.Session{}
 	defer s.CloseSession()
 	s.GetCollection("albums").Insert(&newAlbum)
 	json.NewEncoder(w).Encode(&newAlbum)
@@ -86,7 +86,7 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseMultipartForm(1024)
-	var s db.UseDb = db.Session{}
+	var s db.UseDb = &db.Session{}
 	defer s.CloseSession()
 	if r.FormValue("albumId") != "" {
 		findAlbum, err := foundAlbum(id, r.FormValue("albumId"), s)

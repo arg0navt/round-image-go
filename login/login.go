@@ -56,7 +56,7 @@ type JwtToken struct {
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var target RequestLogInSignUp
 	if ready := readyData(&target, w, r); ready == true {
-		var s db.UseDb = db.Session{}
+		var s db.UseDb = &db.Session{}
 		err := s.CreateSession()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -86,13 +86,13 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		var s db.UseDb = db.Session{}
+		var s db.UseDb = &db.Session{}
 		err = s.CreateSession()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// defer s.CloseSession()
+		defer s.CloseSession()
 		count, errCount := s.GetCollection("users").Find(bson.M{"email": target.Email, "password": target.Password}).Count()
 		if errCount != nil {
 			http.Error(w, errCount.Error(), http.StatusInternalServerError)

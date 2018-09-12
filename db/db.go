@@ -27,7 +27,7 @@ type Session struct {
 	Value *mgo.Session
 }
 
-func (s Session) CreateSession() error {
+func (s *Session) CreateSession() error {
 	connect, err := mgo.Dial(URL)
 	if err != nil {
 		return err
@@ -36,11 +36,12 @@ func (s Session) CreateSession() error {
 	return nil
 }
 
-func (s Session) CloseSession() {
+func (s *Session) CloseSession() {
 	s.Value.Close()
 }
 
-func (s Session) GetCollection(name string) *mgo.Collection {
+func (s *Session) GetCollection(name string) *mgo.Collection {
+	fmt.Println(s.Value)
 	return s.Value.DB(DB).C(name)
 }
 
@@ -54,8 +55,7 @@ func ThereIsUserEmail(s UseDb, email string) bool {
 
 func GetUserId(email string) (string, error) {
 	var result UserID
-	var c Session
-	s := UseDb(&c)
+	var s UseDb = &Session{}
 	err := s.CreateSession()
 	if err != nil {
 		return "", err
