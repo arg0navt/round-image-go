@@ -15,8 +15,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-const maxAge = 86400 // duration valid token
+// maxAge this is time for save of token in cookie
+const maxAge = 86400
 
+// RequestLogInSignUp  struct reques of /log_in /sign_up
 type RequestLogInSignUp struct {
 	FirstName string `json:"first_name" bson:"first_name"`
 	LastName  string `json:"last_name" bson:"last_name"`
@@ -24,6 +26,7 @@ type RequestLogInSignUp struct {
 	Password  string `json:"password" bson:"password"`
 }
 
+// User push this info to bd /sign_up
 type User struct {
 	FirstName      string `json:"first_name" bson:"first_name"`
 	LastName       string `json:"last_name" bson:"last_name"`
@@ -34,25 +37,24 @@ type User struct {
 	DetailInfo     `json:"detailInfo" bson:"detailInfo"`
 }
 
-type Img struct {
-	Name string `json:"name" bson:"name"`
-	Url  string `json:"url" bson:"url"`
-}
-
+// DetailInfo detail information by user
 type DetailInfo struct {
 	Avatar          string `json:"avatar" bson:"avatar"`
 	ImageBackground string `json:"imageBackground" bson:"imageBackground"`
 	StatusMessage   string `json:"statusMessage" bson:"statusMessage"`
 }
 
+// Exception return after /check_token /log_out
 type Exception struct {
 	Message string `json:"message"`
 }
 
+// JwtToken return this message /log_in /sign_up
 type JwtToken struct {
 	Token string `json:"token"`
 }
 
+// CreateUser create new user
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var target RequestLogInSignUp
 	if ready := readyData(&target, w, r); ready == true {
@@ -78,6 +80,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// LogIn return new token for user
 func LogIn(w http.ResponseWriter, r *http.Request) {
 	var target RequestLogInSignUp
 	if ready := readyData(&target, w, r); ready == true {
@@ -107,6 +110,7 @@ func LogIn(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// LogOut delete token from cookie
 func LogOut(w http.ResponseWriter, r *http.Request) {
 	token, err := db.ValidateToken(w, r)
 	if err != nil {
@@ -121,6 +125,7 @@ func LogOut(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(Exception{Message: "ok"})
 }
 
+// CheckToken validate user token
 func CheckToken(w http.ResponseWriter, r *http.Request) {
 	_, err := db.ValidateToken(w, r)
 	if err != nil {

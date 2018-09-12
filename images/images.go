@@ -17,14 +17,19 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-const WIDTH_PREVIEW = 450
-const PATH_TO_IMG = "./src/img"
+// WidthPreview width of image preview
+const WidthPreview = 450
 
+// PathToImg path to derectory with pichers
+const PathToImg = "./src/img"
+
+// RequestCreateAlbum struct request for create new album
 type RequestCreateAlbum struct {
 	Name        string `json:"name" bson:"name"`
 	Description string `json:"description" bson:"description"`
 }
 
+// Album user album
 type Album struct {
 	Name         string        `json:"name" bson:"name"`
 	TimeOfCreate int64         `json:"timeOfCreate" bson:"timeOfCreate"`
@@ -32,25 +37,29 @@ type Album struct {
 	UserID       bson.ObjectId `json:"userId" bson:"userId"`
 }
 
+// Img new picher
 type Img struct {
-	Id         bson.ObjectId `json:"id" bson:"_id"`
+	ID         bson.ObjectId `json:"id" bson:"_id"`
 	Name       string        `json:"name" bson:"name"`
 	Time       int64         `json:"time" bson:"time"`
-	AlbumId    bson.ObjectId `json:"albumId" bson:"albumId"`
-	Url        string        `json:"url" bson:"url"`
-	UrlPreview string        `json:"urlPreview" bson:"urlPreview"`
+	AlbumID    bson.ObjectId `json:"albumId" bson:"albumId"`
+	URL        string        `json:"url" bson:"url"`
+	URLPreview string        `json:"urlPreview" bson:"urlPreview"`
 }
 
+// ImgInfo is being created after DecodeConfig
 type ImgInfo struct {
 	Width  int
 	Height int
 	Format string
 }
 
-type AlbumId struct {
+// AlbumID this id of album
+type AlbumID struct {
 	ID bson.ObjectId `json:"id" bson:"_id"`
 }
 
+// CreateAlbum create new album
 func CreateAlbum(w http.ResponseWriter, r *http.Request) {
 	id, err := db.ValidateToken(w, r)
 	if err != nil {
@@ -73,12 +82,14 @@ func CreateAlbum(w http.ResponseWriter, r *http.Request) {
 		Description:  target.Description,
 		UserID:       bson.ObjectId(id),
 	}
+
 	var s db.UseDb = &db.Session{}
 	defer s.CloseSession()
 	s.GetCollection("albums").Insert(&newAlbum)
 	json.NewEncoder(w).Encode(&newAlbum)
 }
 
+// LoadImage load image and add to db
 func LoadImage(w http.ResponseWriter, r *http.Request) {
 	id, err := db.ValidateToken(w, r)
 	if err != nil {
@@ -87,6 +98,11 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 	}
 	r.ParseMultipartForm(1024)
 	var s db.UseDb = &db.Session{}
+	err = s.CreateSession()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	defer s.CloseSession()
 	if r.FormValue("albumId") != "" {
 		findAlbum, err := foundAlbum(id, r.FormValue("albumId"), s)
@@ -96,19 +112,19 @@ func LoadImage(w http.ResponseWriter, r *http.Request) {
 		}
 		workWithPicher(w, r, findAlbum, s)
 	}
-	defaultAlbumId, errDefault := foundDefaultAlbum(id, s)
+	defaultAlbumID, errDefault := foundDefaultAlbum(id, s)
 	if errDefault != nil {
-		createAlbumId, errD := createDefaultAlbum(id, s)
+		createAlbumID, errD := createDefaultAlbum(id, s)
 		if errD != nil {
 			http.Error(w, errD.Error(), http.StatusBadRequest)
 			return
 		}
-		defaultAlbumId = createAlbumId
+		defaultAlbumID = createAlbumID
 	}
-	workWithPicher(w, r, defaultAlbumId, s)
+	workWithPicher(w, r, defaultAlbumID, s)
 }
 
-func workWithPicher(w http.ResponseWriter, r *http.Request, album AlbumId, s db.UseDb) {
+func workWithPicher(w http.ResponseWriter, r *http.Request, album AlbumID, s db.UseDb) {
 	img, err := setImg(r, album)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -130,28 +146,28 @@ func addPicherToBD(img *Img, s db.UseDb) error {
 	return nil
 }
 
-func setImg(r *http.Request, albumId AlbumId) (Img, error) {
+func setImg(r *http.Request, id AlbumID) (Img, error) {
 	var newImg Img
 	fileName, err := pushImg(r)
 	if err != nil {
 		return newImg, err
 	}
-	newImg = Img{Name: fileName, Url: fileName, Time: time.Now().Unix(), AlbumId: albumId.ID}
-	infoPicher, err := getInfoImg(PATH_TO_IMG + fileName)
+	newImg = Img{Name: fileName, URL: fileName, Time: time.Now().Unix(), AlbumID: id.ID}
+	infoPicher, err := getInfoImg(PathToImg + fileName)
 	if err != nil {
 		return newImg, err
 	}
 	if infoPicher.Width < 400 {
-		newImg.Id = bson.NewObjectId()
-		newImg.UrlPreview = fileName
+		newImg.ID = bson.NewObjectId()
+		newImg.URLPreview = fileName
 		return newImg, nil
 	}
 	preview, err := createPreview(fileName, infoPicher.Format)
 	if err != nil {
 		return newImg, err
 	}
-	newImg.Id = bson.NewObjectId()
-	newImg.UrlPreview = preview
+	newImg.ID = bson.NewObjectId()
+	newImg.URLPreview = preview
 	return newImg, nil
 }
 
@@ -164,7 +180,7 @@ func pushImg(r *http.Request) (string, error) {
 		return "", errors.New("unvalidate format")
 	}
 	fileName := strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + handler.Filename
-	fCreate, err := os.Create(PATH_TO_IMG + fileName)
+	fCreate, err := os.Create(PathToImg + fileName)
 	if err != nil {
 		return "", err
 	}
@@ -175,7 +191,7 @@ func pushImg(r *http.Request) (string, error) {
 }
 
 func createPreview(fileName string, format string) (string, error) {
-	openImg, err := os.Open(PATH_TO_IMG + fileName)
+	openImg, err := os.Open(PathToImg + fileName)
 	if err != nil {
 		return "", err
 	}
@@ -189,7 +205,7 @@ func createPreview(fileName string, format string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	m := resize.Resize(WIDTH_PREVIEW, 0, img, resize.Lanczos3)
+	m := resize.Resize(WidthPreview, 0, img, resize.Lanczos3)
 	preview, err := os.Create("./src/img/" + "preview_" + fileName)
 	defer preview.Close()
 	if format == "jpeg" {
@@ -213,17 +229,17 @@ func getInfoImg(fileName string) (ImgInfo, error) {
 	return ImgInfo{Width: infoPicher.Width, Height: infoPicher.Height, Format: format}, nil
 }
 
-func foundAlbum(id string, albumId string, s db.UseDb) (AlbumId, error) {
-	var getAlbum AlbumId
-	err := s.GetCollection("albums").Find(bson.M{"_id": bson.ObjectId(albumId), "userId": bson.ObjectId(id)}).One(&getAlbum)
+func foundAlbum(id string, idA string, s db.UseDb) (AlbumID, error) {
+	var getAlbum AlbumID
+	err := s.GetCollection("albums").Find(bson.M{"_id": bson.ObjectId(idA), "userId": bson.ObjectId(id)}).One(&getAlbum)
 	if err != nil {
 		return getAlbum, err
 	}
 	return getAlbum, nil
 }
 
-func foundDefaultAlbum(id string, s db.UseDb) (AlbumId, error) {
-	var getAlbum AlbumId
+func foundDefaultAlbum(id string, s db.UseDb) (AlbumID, error) {
+	var getAlbum AlbumID
 	err := s.GetCollection("albums").Find(bson.M{"default": true, "userId": bson.ObjectId(id)}).One(&getAlbum)
 	if err != nil {
 		return getAlbum, err
@@ -231,11 +247,11 @@ func foundDefaultAlbum(id string, s db.UseDb) (AlbumId, error) {
 	return getAlbum, nil
 }
 
-func createDefaultAlbum(id string, s db.UseDb) (AlbumId, error) {
+func createDefaultAlbum(id string, s db.UseDb) (AlbumID, error) {
 	i := bson.NewObjectId()
 	err := s.GetCollection("albums").Insert(bson.M{"_id": i, "userId": bson.ObjectId(id), "name": "Default album", "description": "", "timeToCreate": time.Now().Unix(), "default": true})
 	if err != nil {
-		return AlbumId{}, errors.New("Failed created default album")
+		return AlbumID{}, errors.New("Failed created default album")
 	}
-	return AlbumId{ID: i}, nil
+	return AlbumID{ID: i}, nil
 }

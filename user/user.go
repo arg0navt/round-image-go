@@ -21,6 +21,7 @@ type requestUser struct {
 	result *User
 }
 
+// User the struct return after request /user (GET)
 type User struct {
 	ID               bson.ObjectId `json:"id" bson:"_id"`
 	FirstName        string        `json:"first_name" bson:"first_name"`
@@ -32,6 +33,7 @@ type User struct {
 	Albums           []GetAlbum `json:"albums" bson:"albums"`
 }
 
+// GetAlbum the struct album of user
 type GetAlbum struct {
 	ID           bson.ObjectId `json:"id" bson:"_id"`
 	Name         string        `json:"name" bson:"name"`
@@ -39,7 +41,8 @@ type GetAlbum struct {
 	Description  string        `json:"description" bson:"description"`
 }
 
-func UserInfo(w http.ResponseWriter, r *http.Request) {
+// Info It is take user info from collections by users, images. Next step is returning User
+func Info(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	if id := r.Form.Get("id"); id != "" {
 		albums := make([]GetAlbum, 0)
@@ -48,6 +51,11 @@ func UserInfo(w http.ResponseWriter, r *http.Request) {
 		u := getUser(newRequestUser)
 		count := 0
 		var s db.UseDb = &db.Session{}
+		err := s.CreateSession()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		defer s.CloseSession()
 		go u.takeUserInfo(s)
 		go u.takeUserAlbums(s)
@@ -66,7 +74,7 @@ func UserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u requestUser) takeUserInfo(s db.UseDb) {
-	err := s.GetCollection("users").FindId(bson.ObjectIdHex(u.id)).One(&u.result)
+	err := s.FindUserByID(u.id, &u.result)
 	u.group <- err
 }
 
